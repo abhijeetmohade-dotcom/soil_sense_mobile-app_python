@@ -5,6 +5,16 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
+from flask import jsonify
+
+@app.errorhandler(404)
+def not_found(e):
+    return jsonify(error="Not Found"), 404
+
+@app.errorhandler(500)
+def internal_error(e):
+    return jsonify(error="Internal Server Error"), 500
+
 
 # ---- STEP 1: Mapping Data ----
 fertilizer_recommendations = {
