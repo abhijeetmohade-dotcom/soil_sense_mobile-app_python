@@ -50,8 +50,9 @@
         </div>
         <div id="resultSection" class="hidden w-full">
           <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Analysis Results</h2>
-          <div class="mb-6 flex items-center">
+          <div class="mb-6 flex flex-col gap-2">
             <span id="soilTypeText" class="font-medium text-lg"></span>
+            <div id="recoData" class="text-gray-700 text-sm"></div>
           </div>
           <h3 class="text-lg font-medium mb-2">Recommended Crops</h3>
           <div id="cropsContainer" class="grid grid-cols-2 gap-3"></div>
@@ -77,6 +78,7 @@
     const emptyState = document.getElementById('emptyState');
     const soilTypeText = document.getElementById('soilTypeText');
     const cropsContainer = document.getElementById('cropsContainer');
+    const recoData = document.getElementById('recoData');
     let stream = null, hasImage = false;
 
     // Camera functionality - Open Camera, capture frame on video click
@@ -90,7 +92,6 @@
         analyzeBtn.disabled = true;
         hasImage = false;
 
-        // Click video to capture photo
         camera.onclick = () => {
           if (!stream) return;
           const canvas = document.createElement('canvas');
@@ -103,7 +104,6 @@
           camera.classList.add('hidden');
           hasImage = true;
           analyzeBtn.disabled = false;
-          // Stop camera stream
           stream.getTracks().forEach(t => t.stop());
           stream = null;
           startCameraBtn.disabled = false;
@@ -150,14 +150,13 @@
       if (fileInput.files.length) {
         blobOrFile = fileInput.files[0];
       } else {
-        // base64 to blob
         const res = await fetch(imagePreview.src);
         blobOrFile = await res.blob();
       }
       const formData = new FormData();
       formData.append('image', blobOrFile, 'soil.jpg');
       try {
-        // (Update the fetch URL if your backend is not on localhost for render/live version!)
+        // Use correct backend endpoint in production
         const response = await fetch('http://127.0.0.1:5001/predict', { method: 'POST', body: formData });
         if (!response.ok) throw new Error('Prediction failed');
         const data = await response.json();
@@ -165,7 +164,28 @@
         resultSection.classList.remove('hidden');
         soilTypeText.textContent = data.soil_type || "Unknown";
 
-        // Crop mapping (you can change/expand as you need)
+        // Soil recommendations
+        const fertMap = {
+          "Black Soil": { ferts: ["NPK 20-20-0", "Urea", "Super phosphate", "Potash"], ideals: { pH: "6.5–7.5", "Organic Carbon": "0.75–1%", Nitrogen: "300–450 kg/ha", Phosphorus: "20–25 kg/ha", Potassium: "250–350 kg/ha" } },
+          "Red Soil": { ferts: ["Complex NPK", "DAP", "Potassium sulfate"], ideals: { pH: "5.5–7.0", "Organic Carbon": "0.5–0.8%", Nitrogen: "250–400 kg/ha", Phosphorus: "15–20 kg/ha", Potassium: "150–200 kg/ha" } },
+          "Laterite Soil": { ferts: ["NPK 12-32-16", "Rock phosphate", "Lime"], ideals: { pH: "5.0–6.5", "Organic Carbon": "0.5–1%", Nitrogen: "200–350 kg/ha", Phosphorus: "10–18 kg/ha", Potassium: "120–180 kg/ha" } },
+          "Alluvial Soil": { ferts: ["Urea", "Super phosphate", "Potash"], ideals: { pH: "6.8–8.0", "Organic Carbon": "0.5–0.7%", Nitrogen: "220–380 kg/ha", Phosphorus: "16–22 kg/ha", Potassium: "180–280 kg/ha" } },
+          "Peat Soil": { ferts: ["Urea", "Lime", "Phosphate"], ideals: { pH: "5.0–6.5", "Organic Carbon": "2–5%", Nitrogen: "200–320 kg/ha", Phosphorus: "12–18 kg/ha", Potassium: "110–200 kg/ha" } },
+          "Cinder Soil": { ferts: ["Balanced NPK", "Potash"], ideals: { pH: "6.0–7.4", "Organic Carbon": "1–2%", Nitrogen: "150–250 kg/ha", Phosphorus: "10–18 kg/ha", Potassium: "80–140 kg/ha" } },
+          "Yellow Soil": { ferts: ["NPK (12-32-16)", "Magnesium Sulfate"], ideals: { pH: "5.0–6.8", "Organic Carbon": "0.5–0.8%", Nitrogen: "140–260 kg/ha", Phosphorus: "10–16 kg/ha", Potassium: "100–180 kg/ha" } }
+        };
+
+        let recoHTML = "";
+        const soil = data.soil_type;
+        if(fertMap[soil]) {
+          recoHTML += `<b>Recommended Fertilizers:</b><br>${fertMap[soil].ferts.join(', ')}<br><b>Ideal Soil Content:</b><br>`;
+          for(let [k,v] of Object.entries(fertMap[soil].ideals)) {
+            recoHTML += `${k}: ${v}<br>`;
+          }
+        }
+        recoData.innerHTML = recoHTML;
+
+        // Crop mapping
         const cropRecs = {
           "Black Soil": ["Cotton", "Wheat", "Sorghum", "Soybean", "Sunflower", "Pulses", "Sugarcane"],
           "Red Soil": ["Groundnut", "Millets", "Potato", "Cotton", "Wheat"],
@@ -199,7 +219,6 @@
       }
     };
 
-    // Reset All
     resetBtn.onclick = () => {
       fileInput.value = '';
       imagePreview.src = '';
@@ -212,6 +231,7 @@
       loadingSection.classList.add('hidden');
       resultSection.classList.add('hidden');
       emptyState.classList.remove('hidden');
+      recoData.innerHTML = '';
     };
 
     // On page load, reset all
